@@ -19,7 +19,7 @@ export function authenticateJWT(
   res: Response,
   next: NextFunction
 ): void {
-  const authHeader = req.header("Authorization");
+  const authHeader = req.get("Authorization");
 
   if (!authHeader?.startsWith("Bearer ")) {
     res.status(401).json({ error: "Missing or invalid Authorization header" });
