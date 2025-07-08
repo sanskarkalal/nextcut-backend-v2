@@ -1,0 +1,16 @@
+# render.yaml
+services:
+  - type: web
+    name: nextcut-backend-v2
+    env: node
+    buildCommand: npm install && npm run build && npx prisma generate
+    startCommand: npm start
+    healthCheckPath: /health
+    plan: free
+    region: oregon
+    envVars:
+      - key: NODE_ENV
+        value: production
+    scaling:
+      minInstances: 1
+      maxInstances: 3
