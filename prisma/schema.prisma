@@ -1,0 +1,52 @@
+// prisma/schema.prisma
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider  = "postgresql"
+    url       = env("DATABASE_URL")
+    directUrl = env("DIRECT_URL")
+}
+
+model User {
+    id           Int      @id @default(autoincrement())
+    name         String
+    email        String   @unique
+    passwordHash String
+    createdAt    DateTime @default(now())
+
+    // queue status flags
+    inQueue        Boolean @default(false)
+    queuedBarberId Int?
+    Queue          Queue?
+
+    @@index([queuedBarberId])
+}
+
+model Barber {
+    id           Int      @id @default(autoincrement())
+    name         String
+    username     String   @unique
+    passwordHash String
+    lat          Float
+    long         Float
+    createdAt    DateTime @default(now())
+
+    queueEntries Queue[]
+}
+
+model Queue {
+    id        Int      @id @default(autoincrement())
+    enteredAt DateTime @default(now())
+
+    barber   Barber @relation(fields: [barberId], references: [id])
+    barberId Int
+
+    user   User @relation(fields: [userId], references: [id])
+    userId Int
+
+    @@unique([userId])
+    @@index([barberId, enteredAt])
+}
