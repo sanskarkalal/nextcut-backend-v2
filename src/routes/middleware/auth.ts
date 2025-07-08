@@ -5,7 +5,7 @@ import "dotenv/config";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-// Extend Request interface to include user
+// Properly extend Request interface
 export interface AuthenticatedRequest extends Request {
   user?: {
     id: number;
@@ -19,7 +19,7 @@ export function authenticateJWT(
   res: Response,
   next: NextFunction
 ): void {
-  const authHeader = req.get("Authorization");
+  const authHeader = req.headers.authorization;
 
   if (!authHeader?.startsWith("Bearer ")) {
     res.status(401).json({ error: "Missing or invalid Authorization header" });
