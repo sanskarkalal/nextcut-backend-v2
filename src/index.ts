@@ -14,19 +14,33 @@ console.log("JWT_SECRET:", process.env.JWT_SECRET ? "Set" : "Not set");
 console.log("DATABASE_URL:", process.env.DATABASE_URL ? "Set" : "Not set");
 console.log("========================");
 
-// Simple CORS allowing your frontend
+// UPDATED CORS with more permissive settings
 app.use(
   cors({
     origin: [
+      //allow all vercel domains
+      /\.vercel(?:\.app|-preview\.app)$/,
       "https://next-cut-frontend-e6zu.vercel.app",
       "http://localhost:5173",
       "http://localhost:3000",
+      "https://nextcut-backend-v2.onrender.com",
+      "https://next-cut-frontend-e6zu-ghyrwsst9-sanskars-projects-5d4f18b1.vercel.app", // Add your backend URL too
     ],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
+    optionsSuccessStatus: 200, // Some legacy browsers choke on 204
   })
 );
+
+// Add explicit OPTIONS handling for preflight requests
+app.options("*", cors());
 
 app.use(express.json());
 
@@ -48,12 +62,9 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ADD THESE ROUTE CONNECTIONS
+// USE YOUR ROUTE FILES
 app.use("/user", userRouter);
 app.use("/barber", barberRouter);
-
-// REMOVE ALL THE INLINE ENDPOINTS (everything from line 49 to the debug endpoint)
-// Keep only the debug endpoint and server startup
 
 // Debug endpoint
 app.get("/debug", (req, res) => {
