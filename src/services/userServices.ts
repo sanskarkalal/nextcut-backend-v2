@@ -155,6 +155,7 @@ export async function removeFromQueue(userId: number) {
   }
 }
 
+// src/services/userServices.ts - Updated getUserQueueStatus function
 export async function getUserQueueStatus(userId: number) {
   try {
     const user = await prisma.user.findUnique({
@@ -166,7 +167,14 @@ export async function getUserQueueStatus(userId: number) {
         queuedBarberId: true,
         Queue: {
           include: {
-            barber: { select: { id: true, name: true } },
+            barber: {
+              select: {
+                id: true,
+                name: true,
+                lat: true, // ADD THIS - needed for directions
+                long: true, // ADD THIS - needed for directions
+              },
+            },
           },
         },
       },
@@ -198,7 +206,7 @@ export async function getUserQueueStatus(userId: number) {
     return {
       inQueue: true,
       queuePosition: position + 1, // +1 because count starts at 0
-      barber: user.Queue.barber,
+      barber: user.Queue.barber, // Now includes lat/long
       enteredAt: user.Queue.enteredAt,
     };
   } catch (error) {
