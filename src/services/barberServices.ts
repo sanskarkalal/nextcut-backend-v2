@@ -1,4 +1,4 @@
-// src/services/barberServices.ts
+// src/services/barberServices.ts - Complete Barber Services
 import { Prisma } from "@prisma/client";
 import prisma from "../db";
 import bcrypt from "bcrypt";
@@ -73,7 +73,7 @@ export async function authenticateBarber(
 
 export async function getQueue(barberId: number): Promise<
   Prisma.QueueGetPayload<{
-    include: { user: { select: { id: true; name: true } } };
+    include: { user: { select: { id: true; name: true; phoneNumber: true } } };
   }>[]
 > {
   try {
@@ -89,7 +89,9 @@ export async function getQueue(barberId: number): Promise<
     return prisma.queue.findMany({
       where: { barberId },
       orderBy: { enteredAt: "asc" },
-      include: { user: { select: { id: true, name: true } } },
+      include: {
+        user: { select: { id: true, name: true, phoneNumber: true } },
+      },
     });
   } catch (error) {
     console.error("Error getting queue:", error);
@@ -100,54 +102,111 @@ export async function getQueue(barberId: number): Promise<
 export async function removeUserFromQueue(barberId: number, userId: number) {
   try {
     // Check if the queue entry exists and belongs to this barber
-    const queueEntry = await prisma.queue.findFirst({
-      where: {
-        barberId,
-        userId,
-      },
+    const queueEntry = await prisma.queue.findUnique({
+      where: { userId },
       include: {
-        user: { select: { id: true, name: true } },
+        user: { select: { id: true, name: true, phoneNumber: true } },
+        barber: { select: { id: true, name: true } },
       },
     });
 
     if (!queueEntry) {
       return {
         success: false,
-        message: "User is not in this barber's queue",
+        message: "User is not in any queue",
         data: null,
       };
     }
 
-    // Remove user from queue in a transaction
-    const [deletedEntry] = await prisma.$transaction([
-      // 1) Delete the queue entry
-      prisma.queue.delete({
-        where: { id: queueEntry.id },
-        include: {
-          user: { select: { id: true, name: true } },
-        },
-      }),
+    // Verify the barber has permission to remove this user
+    if (queueEntry.barberId !== barberId) {
+      return {
+        success: false,
+        message: "You can only remove users from your own queue",
+        data: null,
+      };
+    }
 
-      // 2) Update user's queue status
+    // Create service history entry
+    await prisma.serviceHistory.create({
+      data: {
+        barberId: barberId,
+        userId: userId,
+        service: queueEntry.service,
+      },
+    });
+
+    // Remove from queue and update user status
+    await prisma.$transaction([
+      prisma.queue.delete({ where: { userId } }),
       prisma.user.update({
         where: { id: userId },
-        data: {
-          inQueue: false,
-          queuedBarberId: null,
-        },
+        data: { inQueue: false, queuedBarberId: null },
       }),
     ]);
 
     return {
       success: true,
-      message: `Successfully removed ${deletedEntry.user.name} from queue`,
+      message: "User served and removed from queue successfully",
       data: {
-        removedUser: deletedEntry.user,
-        removedAt: new Date().toISOString(),
+        user: queueEntry.user,
+        service: queueEntry.service,
+        servedAt: new Date(),
       },
     };
   } catch (error) {
     console.error("Error removing user from queue:", error);
     throw new Error("Failed to remove user from queue");
+  }
+}
+
+export async function getBarberStats(barberId: number) {
+  try {
+    // Verify barber exists
+    const barber = await prisma.barber.findUnique({
+      where: { id: barberId },
+    });
+
+    if (!barber) {
+      throw new Error("Barber not found");
+    }
+
+    const currentQueue = await prisma.queue.count({
+      where: { barberId },
+    });
+
+    const totalServiced = await prisma.serviceHistory.count({
+      where: { barberId },
+    });
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayServiced = await prisma.serviceHistory.count({
+      where: {
+        barberId,
+        servedAt: { gte: todayStart },
+      },
+    });
+
+    const recentServices = await prisma.serviceHistory.findMany({
+      where: { barberId },
+      orderBy: { servedAt: "desc" },
+      take: 10,
+      include: {
+        user: { select: { id: true, name: true, phoneNumber: true } },
+      },
+    });
+
+    return {
+      currentQueueLength: currentQueue,
+      totalCustomersServiced: totalServiced,
+      todayCustomersServiced: todayServiced,
+      estimatedWaitTime: currentQueue * 15, // 15 minutes per customer
+      recentServices,
+    };
+  } catch (error) {
+    console.error("Error getting barber stats:", error);
+    throw new Error("Failed to get barber statistics");
   }
 }

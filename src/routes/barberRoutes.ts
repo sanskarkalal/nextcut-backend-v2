@@ -1,4 +1,4 @@
-// src/routes/barberRoutes.ts
+// src/routes/barberRoutes.ts - Fixed with proper default export
 import { Router, Request, Response } from "express";
 import {
   authenticateBarber,
@@ -153,6 +153,7 @@ router.get(
           position: index + 1,
           queueId: entry.id,
           user: entry.user,
+          service: entry.service || "haircut", // Fallback for old entries
           enteredAt: entry.enteredAt,
         })),
       });
@@ -211,4 +212,5 @@ router.post(
   }
 );
 
+// IMPORTANT: Default export
 export default router;
