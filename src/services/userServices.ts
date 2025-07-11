@@ -1,7 +1,6 @@
-// src/services/userServices.ts - Complete User Services
+// src/services/userServices.ts - COMPLETE FIXED VERSION
 import { Prisma } from "@prisma/client";
 import prisma from "../db";
-import bcrypt from "bcrypt";
 
 export interface UserDTO {
   id: number;
@@ -170,60 +169,7 @@ export async function removeFromQueue(userId: number) {
   }
 }
 
-export async function getBarbersNearby(
-  userLat: number,
-  userLong: number,
-  radiusKm: number = 10
-) {
-  try {
-    const allBarbers = await prisma.barber.findMany({
-      include: {
-        queueEntries: {
-          orderBy: { enteredAt: "asc" },
-          include: {
-            user: { select: { id: true, name: true } },
-          },
-        },
-      },
-    });
-
-    const barbersWithDistance = allBarbers.map((barber) => {
-      const distance = calculateDistance(
-        userLat,
-        userLong,
-        barber.lat,
-        barber.long
-      );
-
-      return {
-        id: barber.id,
-        name: barber.name,
-        lat: barber.lat,
-        long: barber.long,
-        distance: Math.round(distance * 10) / 10, // Round to 1 decimal
-        queueLength: barber.queueEntries.length,
-        estimatedWait: barber.queueEntries.length * 15, // 15 minutes per person
-        queue: barber.queueEntries.map((entry, index) => ({
-          position: index + 1,
-          user: entry.user,
-          service: entry.service,
-          enteredAt: entry.enteredAt,
-        })),
-      };
-    });
-
-    // Filter by radius and sort by distance
-    const nearbyBarbers = barbersWithDistance
-      .filter((barber) => barber.distance <= radiusKm)
-      .sort((a, b) => a.distance - b.distance);
-
-    return nearbyBarbers;
-  } catch (error) {
-    console.error("Error getting nearby barbers:", error);
-    throw new Error("Failed to get nearby barbers");
-  }
-}
-
+// ✅ FIXED: getUserQueueStatus with correct field names
 export async function getUserQueueStatus(userId: number) {
   try {
     const user = await prisma.user.findUnique({
@@ -244,11 +190,11 @@ export async function getUserQueueStatus(userId: number) {
     if (!user.inQueue || !user.Queue) {
       return {
         inQueue: false,
-        queuePosition: null, // ✅ FIXED: Changed from 'position'
+        queuePosition: null, // ✅ Frontend expects queuePosition
         barber: null,
-        enteredAt: null, // ✅ ADDED: Missing field
+        enteredAt: null, // ✅ Added missing field
         service: null,
-        estimatedWaitTime: null, // ✅ FIXED: Changed from 'estimatedWait'
+        estimatedWaitTime: null, // ✅ Frontend expects estimatedWaitTime
       };
     }
 
@@ -265,19 +211,64 @@ export async function getUserQueueStatus(userId: number) {
 
     return {
       inQueue: true,
-      queuePosition: queuePosition + 1, // ✅ FIXED: Field name
+      queuePosition: queuePosition + 1, // ✅ Frontend expects queuePosition
       barber: {
         id: user.Queue.barber.id,
         name: user.Queue.barber.name,
         lat: user.Queue.barber.lat,
         long: user.Queue.barber.long,
       },
-      enteredAt: user.Queue.enteredAt.toISOString(), // ✅ ADDED
-      service: user.Queue.service || "haircut", // ✅ FIXED
-      estimatedWaitTime: estimatedWaitMinutes, // ✅ FIXED: Field name
+      enteredAt: user.Queue.enteredAt.toISOString(), // ✅ Added missing field
+      service: user.Queue.service || "haircut", // ✅ Ensure service is included
+      estimatedWaitTime: estimatedWaitMinutes, // ✅ Frontend expects estimatedWaitTime
     };
   } catch (error) {
     console.error("Error getting user queue status:", error);
     throw new Error("Failed to get queue status");
+  }
+}
+
+export async function getBarbersNearby(
+  userLat: number,
+  userLong: number,
+  radiusKm: number
+) {
+  try {
+    const barbers = await prisma.barber.findMany({
+      include: {
+        queueEntries: {
+          select: { id: true },
+        },
+      },
+    });
+
+    const barbersWithDistance = barbers.map((barber) => {
+      const distance = calculateDistance(
+        userLat,
+        userLong,
+        barber.lat,
+        barber.long
+      );
+
+      return {
+        id: barber.id,
+        name: barber.name,
+        lat: barber.lat,
+        long: barber.long,
+        distance: Math.round(distance * 10) / 10, // Round to 1 decimal
+        queueLength: barber.queueEntries.length,
+        estimatedWaitTime: barber.queueEntries.length * 15, // 15 min per person
+      };
+    });
+
+    // Filter by radius and sort by distance
+    const nearbyBarbers = barbersWithDistance
+      .filter((barber) => barber.distance <= radiusKm)
+      .sort((a, b) => a.distance - b.distance);
+
+    return nearbyBarbers;
+  } catch (error) {
+    console.error("Error getting nearby barbers:", error);
+    throw new Error("Failed to get nearby barbers");
   }
 }

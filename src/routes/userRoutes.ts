@@ -1,4 +1,4 @@
-// src/routes/userRoutes.ts - Complete User Routes
+// src/routes/userRoutes.ts - COMPLETE FIXED VERSION
 import express, { Request, Response } from "express";
 import {
   createUser,
@@ -29,7 +29,7 @@ const getErrorCode = (error: unknown): string | undefined => {
   return undefined;
 };
 
-// User signup (Phone + Name only)
+// ✅ FIXED: User signup (Phone + Name only)
 userRouter.post("/signup", async (req: Request, res: Response) => {
   try {
     console.log("User signup request received:", {
@@ -45,10 +45,19 @@ userRouter.post("/signup", async (req: Request, res: Response) => {
       return;
     }
 
-    // Basic phone number validation
+    // ✅ FIXED: Exact phone number validation (10 digits, starts with 6-9)
     const cleanPhone = phoneNumber.replace(/\D/g, "");
-    if (cleanPhone.length < 10) {
-      res.status(400).json({ error: "Please enter a valid phone number." });
+    if (cleanPhone.length !== 10) {
+      res
+        .status(400)
+        .json({ error: "Phone number must be exactly 10 digits." });
+      return;
+    }
+
+    if (!/^[6-9]/.test(cleanPhone)) {
+      res
+        .status(400)
+        .json({ error: "Phone number must start with 6, 7, 8, or 9." });
       return;
     }
 
@@ -91,7 +100,7 @@ userRouter.post("/signup", async (req: Request, res: Response) => {
   }
 });
 
-// User signin (Phone only)
+// ✅ FIXED: User signin (Phone only - returns user with name)
 userRouter.post("/signin", async (req: Request, res: Response) => {
   try {
     console.log("User signin request received:", {
@@ -107,8 +116,21 @@ userRouter.post("/signin", async (req: Request, res: Response) => {
       return;
     }
 
-    // Clean phone number
+    // ✅ FIXED: Same validation as signup
     const cleanPhone = phoneNumber.replace(/\D/g, "");
+    if (cleanPhone.length !== 10) {
+      res
+        .status(400)
+        .json({ error: "Phone number must be exactly 10 digits." });
+      return;
+    }
+
+    if (!/^[6-9]/.test(cleanPhone)) {
+      res
+        .status(400)
+        .json({ error: "Phone number must start with 6, 7, 8, or 9." });
+      return;
+    }
 
     console.log("Attempting to authenticate user:", cleanPhone);
     const user = await authenticateUser(cleanPhone);
@@ -132,8 +154,10 @@ userRouter.post("/signin", async (req: Request, res: Response) => {
     console.log("User signin successful:", {
       userId: user.id,
       phoneNumber: user.phoneNumber,
+      name: user.name,
     });
 
+    // ✅ This returns the user object with name from database
     res.json({
       user,
       msg: "User Signed In Successfully",
@@ -230,7 +254,7 @@ userRouter.post(
   }
 );
 
-// Get current queue status for user
+// ✅ FIXED: Get current queue status for user
 userRouter.get(
   "/queue-status",
   authenticateJWT,
@@ -245,9 +269,10 @@ userRouter.get(
 
       const queueStatus = await getUserQueueStatus(userId);
 
+      // ✅ FIXED: Return queueStatus (not status) to match frontend
       res.json({
         msg: "Queue status retrieved successfully",
-        status: queueStatus,
+        queueStatus: queueStatus,
       });
     } catch (error) {
       console.error("Queue status error:", error);
@@ -271,69 +296,26 @@ userRouter.post("/barbers", async (req: Request, res: Response) => {
 
     const latitude = parseFloat(lat);
     const longitude = parseFloat(long);
-    const searchRadius = radius ? parseFloat(radius) : 10; // Default 10km radius
+    const searchRadius = radius ? parseFloat(radius) : 10;
 
     if (isNaN(latitude) || isNaN(longitude)) {
       res.status(400).json({ error: "Invalid latitude or longitude values" });
       return;
     }
 
-    // Validate latitude and longitude ranges
-    if (latitude < -90 || latitude > 90) {
-      res.status(400).json({ error: "Latitude must be between -90 and 90" });
-      return;
-    }
-
-    if (longitude < -180 || longitude > 180) {
-      res.status(400).json({ error: "Longitude must be between -180 and 180" });
-      return;
-    }
-
     const barbers = await getBarbersNearby(latitude, longitude, searchRadius);
 
     res.json({
-      msg: "Nearby barbers found",
-      count: barbers.length,
-      searchRadius: searchRadius,
-      userLocation: { lat: latitude, long: longitude },
       barbers,
+      msg: `Found ${barbers.length} barbers within ${searchRadius}km`,
     });
   } catch (error) {
     console.error("Get barbers error:", error);
     res.status(500).json({
-      msg: "Error finding nearby barbers",
+      msg: "Error getting nearby barbers",
       error: getErrorMessage(error),
     });
   }
 });
 
 export default userRouter;
-
-userRouter.get(
-  "/queue-status",
-  authenticateJWT,
-  async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const userId = req.user?.id;
-
-      if (!userId) {
-        res.status(401).json({ error: "User not authenticated" });
-        return;
-      }
-
-      const queueStatus = await getUserQueueStatus(userId);
-
-      // ✅ FIXED: Return queueStatus key to match frontend expectation
-      res.json({
-        msg: "Queue status retrieved successfully",
-        queueStatus: queueStatus, // ✅ Changed from 'status' to 'queueStatus'
-      });
-    } catch (error) {
-      console.error("Queue status error:", error);
-      res.status(500).json({
-        msg: "Error getting queue status",
-        error: getErrorMessage(error),
-      });
-    }
-  }
-);
