@@ -202,7 +202,7 @@ export async function getUserQueueStatus(userId: number) {
     const queuePosition = await prisma.queue.count({
       where: {
         barberId: user.queuedBarberId!,
-        enteredAt: { lt: user.Queue.enteredAt },
+        enteredAt: user.Queue.enteredAt.toISOString(),
       },
     });
 
