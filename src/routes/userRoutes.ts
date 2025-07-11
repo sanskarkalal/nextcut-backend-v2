@@ -285,37 +285,41 @@ userRouter.get(
 );
 
 // Get nearby barbers
-userRouter.post("/barbers",authenticateJWT, async (req: Request, res: Response) => {
-  try {
-    const { lat, long, radius } = req.body;
+userRouter.post(
+  "/barbers",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const { lat, long, radius } = req.body;
+      console.log("Get barbers request received:");
+      if (!lat || !long) {
+        res.status(400).json({ error: "Latitude and longitude are required" });
+        return;
+      }
 
-    if (!lat || !long) {
-      res.status(400).json({ error: "Latitude and longitude are required" });
-      return;
+      const latitude = parseFloat(lat);
+      const longitude = parseFloat(long);
+      const searchRadius = radius ? parseFloat(radius) : 10;
+
+      if (isNaN(latitude) || isNaN(longitude)) {
+        res.status(400).json({ error: "Invalid latitude or longitude values" });
+        return;
+      }
+
+      const barbers = await getBarbersNearby(latitude, longitude, searchRadius);
+
+      res.json({
+        barbers,
+        msg: `Found ${barbers.length} barbers within ${searchRadius}km`,
+      });
+    } catch (error) {
+      console.error("Get barbers error:", error);
+      res.status(500).json({
+        msg: "Error getting nearby barbers",
+        error: getErrorMessage(error),
+      });
     }
-
-    const latitude = parseFloat(lat);
-    const longitude = parseFloat(long);
-    const searchRadius = radius ? parseFloat(radius) : 10;
-
-    if (isNaN(latitude) || isNaN(longitude)) {
-      res.status(400).json({ error: "Invalid latitude or longitude values" });
-      return;
-    }
-
-    const barbers = await getBarbersNearby(latitude, longitude, searchRadius);
-
-    res.json({
-      barbers,
-      msg: `Found ${barbers.length} barbers within ${searchRadius}km`,
-    });
-  } catch (error) {
-    console.error("Get barbers error:", error);
-    res.status(500).json({
-      msg: "Error getting nearby barbers",
-      error: getErrorMessage(error),
-    });
   }
-});
+);
 
 export default userRouter;

@@ -194,6 +194,7 @@ export async function getBarbersNearby(
   userLong: number,
   radiusKm: number
 ) {
+  console.log("Getting nearby barbers");
   try {
     const barbers = await prisma.barber.findMany({
       include: { queueEntries: { select: { id: true } } },
