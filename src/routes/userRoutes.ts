@@ -285,7 +285,7 @@ userRouter.get(
 );
 
 // Get nearby barbers
-userRouter.post("/barbers", async (req: Request, res: Response) => {
+userRouter.post("/barbers",authenticateJWT, async (req: Request, res: Response) => {
   try {
     const { lat, long, radius } = req.body;
 
