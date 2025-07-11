@@ -170,58 +170,6 @@ export async function removeFromQueue(userId: number) {
   }
 }
 
-export async function getUserQueueStatus(userId: number) {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        Queue: {
-          include: {
-            barber: { select: { id: true, name: true } },
-          },
-        },
-      },
-    });
-
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    if (!user.inQueue || !user.Queue) {
-      return {
-        inQueue: false,
-        position: null,
-        barber: null,
-        estimatedWait: null,
-        service: null,
-      };
-    }
-
-    // Get queue position
-    const queuePosition = await prisma.queue.count({
-      where: {
-        barberId: user.queuedBarberId!,
-        enteredAt: { lt: user.Queue.enteredAt },
-      },
-    });
-
-    // Estimate wait time (15 minutes per person ahead)
-    const estimatedWaitMinutes = queuePosition * 15;
-
-    return {
-      inQueue: true,
-      position: queuePosition + 1,
-      barber: user.Queue.barber,
-      estimatedWait: estimatedWaitMinutes,
-      service: user.Queue.service,
-      enteredAt: user.Queue.enteredAt,
-    };
-  } catch (error) {
-    console.error("Error getting queue status:", error);
-    throw new Error("Failed to get queue status");
-  }
-}
-
 export async function getBarbersNearby(
   userLat: number,
   userLong: number,
@@ -273,5 +221,63 @@ export async function getBarbersNearby(
   } catch (error) {
     console.error("Error getting nearby barbers:", error);
     throw new Error("Failed to get nearby barbers");
+  }
+}
+
+export async function getUserQueueStatus(userId: number) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        Queue: {
+          include: {
+            barber: { select: { id: true, name: true, lat: true, long: true } },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    if (!user.inQueue || !user.Queue) {
+      return {
+        inQueue: false,
+        queuePosition: null, // ✅ FIXED: Changed from 'position'
+        barber: null,
+        enteredAt: null, // ✅ ADDED: Missing field
+        service: null,
+        estimatedWaitTime: null, // ✅ FIXED: Changed from 'estimatedWait'
+      };
+    }
+
+    // Get queue position
+    const queuePosition = await prisma.queue.count({
+      where: {
+        barberId: user.queuedBarberId!,
+        enteredAt: { lt: user.Queue.enteredAt },
+      },
+    });
+
+    // Estimate wait time (15 minutes per person ahead)
+    const estimatedWaitMinutes = queuePosition * 15;
+
+    return {
+      inQueue: true,
+      queuePosition: queuePosition + 1, // ✅ FIXED: Field name
+      barber: {
+        id: user.Queue.barber.id,
+        name: user.Queue.barber.name,
+        lat: user.Queue.barber.lat,
+        long: user.Queue.barber.long,
+      },
+      enteredAt: user.Queue.enteredAt.toISOString(), // ✅ ADDED
+      service: user.Queue.service || "haircut", // ✅ FIXED
+      estimatedWaitTime: estimatedWaitMinutes, // ✅ FIXED: Field name
+    };
+  } catch (error) {
+    console.error("Error getting user queue status:", error);
+    throw new Error("Failed to get queue status");
   }
 }

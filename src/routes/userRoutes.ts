@@ -308,3 +308,32 @@ userRouter.post("/barbers", async (req: Request, res: Response) => {
 });
 
 export default userRouter;
+
+userRouter.get(
+  "/queue-status",
+  authenticateJWT,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({ error: "User not authenticated" });
+        return;
+      }
+
+      const queueStatus = await getUserQueueStatus(userId);
+
+      // ✅ FIXED: Return queueStatus key to match frontend expectation
+      res.json({
+        msg: "Queue status retrieved successfully",
+        queueStatus: queueStatus, // ✅ Changed from 'status' to 'queueStatus'
+      });
+    } catch (error) {
+      console.error("Queue status error:", error);
+      res.status(500).json({
+        msg: "Error getting queue status",
+        error: getErrorMessage(error),
+      });
+    }
+  }
+);
